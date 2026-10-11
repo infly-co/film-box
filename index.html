@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="底片盒">
+<meta name="theme-color" content="#0e0d0b">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}</style>
+</head>
+<body>
+<title>底片盒</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Noto+Sans+TC:wght@400;500;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: one-screen darkroom — photo stage on top, film-box strip + tabs pinned below. Deliberately single dark look (photos are judged on dark). */
+:root {
+  --bg: #0e0d0b;
+  --surface: #1a1814;
+  --surface-2: #26231d;
+  --line: #34302800;
+  --fg: #f3eee4;
+  --muted: #cfc6b5;
+  --accent: #f2b33d;
+  --accent-ink: #1a1305;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Noto Sans TC", -apple-system, "PingFang TC", sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body);
+  overflow: hidden; -webkit-tap-highlight-color: transparent;
+}
+.app {
+  height: 100%; max-width: 560px; margin: 0 auto;
+  display: flex; flex-direction: column; padding-inline: 16px;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 10px;
+}
+.brand { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: .04em; line-height: 1; }
+.brand small { font-family: var(--body); font-weight: 500; font-size: 12px; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.btn {
+  appearance: none; border: 0; border-radius: 999px; cursor: pointer;
+  font: 700 15px/1 var(--body); padding: 11px 18px; color: var(--fg); background: var(--surface-2);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:focus-visible, .chip:focus-visible, .tab:focus-visible, .frame-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn[disabled] { opacity: .5; }
+.pick { position: relative; overflow: hidden; }
+.pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 100px; }
+.pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; gap: 8px; }
+
+.stage {
+  flex: 1 1 auto; min-height: 0; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.stage canvas { max-width: 100%; max-height: 100%; display: block; box-shadow: 0 10px 40px #0008; }
+.badge {
+  position: absolute; top: 10px; left: 10px; background: #000a; color: var(--fg);
+  font: 500 12px/1 var(--body); padding: 6px 10px; border-radius: 999px;
+}
+.hint { font-size: 12px; color: var(--muted); text-align: center; padding-block: 8px 2px; min-height: 18px; }
+.hint b { color: var(--fg); font-weight: 700; }
+
+.panel { padding-block: 8px 4px; }
+.strip {
+  display: flex; gap: 10px; overflow-x: auto; padding-block: 4px 8px;
+  scroll-snap-type: x proximity; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px;
+}
+.strip::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; width: 84px; border: 0; padding: 0; background: none; color: var(--fg);
+  cursor: pointer; scroll-snap-align: start; text-align: left;
+}
+.chip .box {
+  width: 84px; height: 84px; border-radius: 10px; overflow: hidden; position: relative;
+  outline: 2px solid transparent; outline-offset: 2px; transition: outline-color .15s;
+}
+.chip .box { background: radial-gradient(circle at 50% 35%, #2c2822, #15130f); }
+.chip svg { width: 100%; height: 100%; display: block; }
+.chip .label {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 6px 5px;
+  font: 800 13px/1 var(--display); letter-spacing: .05em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chip .name { font-size: 12px; margin-top: 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip[aria-pressed="true"] .box { outline-color: var(--accent); }
+.chip[aria-pressed="true"] .name { color: var(--accent); font-weight: 700; }
+
+.sliders { display: grid; gap: 10px; padding-block: 6px; }
+.row { display: grid; grid-template-columns: 44px 1fr 40px; align-items: center; gap: 10px; font-size: 13px; }
+.row output { font-family: var(--mono); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.reset { justify-self: end; font-size: 13px; padding: 8px 14px; }
+
+.frames { display: flex; gap: 8px; flex-wrap: wrap; padding-block: 6px; }
+.frame-opt {
+  border: 0; cursor: pointer; background: var(--surface-2); color: var(--fg);
+  font: 500 14px/1 var(--body); padding: 10px 14px; border-radius: 10px;
+}
+.frame-opt[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-block: 8px; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+.stamp-demo { font-family: var(--mono); color: #ff8a1f; text-shadow: 0 0 6px #ff6a0099; }
+
+nav.tabs {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+}
+.tab {
+  border: 0; background: none; color: var(--fg); cursor: pointer;
+  font: 500 16px/1 var(--body); padding: 12px 0 10px; position: relative;
+}
+.tab[aria-selected="true"] { color: var(--accent); font-weight: 700; }
+.tab[aria-selected="true"]::after {
+  content: ""; position: absolute; left: 50%; bottom: 2px; width: 22px; height: 3px;
+  border-radius: 2px; background: var(--accent); transform: translateX(-50%);
+}
+
+.overlay {
+  position: fixed; inset: 0; background: #000c; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px; padding: 24px 16px; z-index: 10; text-align: center;
+}
+.overlay img { max-height: 70%; max-width: 100%; box-shadow: 0 10px 40px #000; -webkit-touch-callout: default; }
+.overlay p { max-width: 32ch; line-height: 1.6; font-size: 15px; }
+.spinner {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 4px solid var(--surface-2); border-top-color: var(--accent); animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } .chip .box { transition: none; } }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">底片盒<small>老相機濾鏡</small></div>
+    <div class="actions">
+      <label class="btn pick" for="file">選照片<input id="file" type="file" accept="image/*"></label>
+      <button class="btn primary" id="save" type="button">儲存</button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage" aria-label="照片預覽，按住可看原圖">
+    <canvas id="view"></canvas>
+    <span class="badge" id="badge" hidden>原圖</span>
+  </div>
+  <div class="hint" id="hint"></div>
+
+  <section class="panel" id="panel-filter" role="tabpanel">
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section class="panel" id="panel-adjust" role="tabpanel" hidden>
+    <div class="sliders">
+      <div class="row"><label for="s-amount">強度</label><input id="s-amount" type="range" min="0" max="200" value="100"><output id="o-amount">100</output></div>
+      <div class="row"><label for="s-exp">亮度</label><input id="s-exp" type="range" min="-100" max="100" value="0"><output id="o-exp">0</output></div>
+      <div class="row"><label for="s-temp">色溫</label><input id="s-temp" type="range" min="-100" max="100" value="0"><output id="o-temp">0</output></div>
+      <div class="row"><label for="s-grain">顆粒</label><input id="s-grain" type="range" min="-100" max="100" value="0"><output id="o-grain">0</output></div>
+      <div class="row"><label for="s-vig">暗角</label><input id="s-vig" type="range" min="-100" max="100" value="0"><output id="o-vig">0</output></div>
+      <div class="row"><label for="s-glow">柔光</label><input id="s-glow" type="range" min="-100" max="100" value="0"><output id="o-glow">0</output></div>
+      <button class="btn reset" id="reset" type="button">重設</button>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-frame" role="tabpanel" hidden>
+    <div class="frames" id="frames"></div>
+    <label class="toggle"><input type="checkbox" id="stamp"> 加上日期戳 <span class="stamp-demo" id="stamp-demo"></span></label>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-panel="panel-adjust" aria-selected="false" type="button">調整</button>
+    <button class="tab" role="tab" data-panel="panel-filter" aria-selected="true" type="button">濾鏡</button>
+    <button class="tab" role="tab" data-panel="panel-frame" aria-selected="false" type="button">相框</button>
+  </nav>
+</div>
+
+<div class="overlay" id="busy" hidden><div class="spinner"></div><p>沖洗中…</p></div>
+<div class="overlay" id="result" hidden>
+  <img id="result-img" alt="完成的照片">
+  <p id="result-tip">長按照片，選「加入照片」就能存到相簿。</p>
+  <div class="actions"><button class="btn primary" id="result-share" type="button" hidden>存到相簿</button><button class="btn" id="result-close" type="button">關閉</button></div>
+</div>
+
+<script>
+/* ---------- 濾鏡配方 ----------
+   temp：正＝暖；tint：正＝洋紅；contrast／fade／roll 是曲線；shadows／highs 是暗部與亮部偏色 [R,G,B]；
+   greenShift：正＝綠轉青、負＝綠轉黃；blueSat：藍色飽和度；halation：亮處紅暈；glow：柔光 */
+const FILTERS = [
+  { id:"none", name:"無", label:"ORIGINAL", c:["#3a362e","#f3eee4"], desc:"原始照片", grain:0, vig:0 },
+  { id:"retro", name:"Retro", label:"RETRO", c:["#1d4f9c","#ffffff"], desc:"乾淨暖調：黑色保持乾淨，只留一點復古溫度",
+    temp:.18, contrast:.14, fade:.02, sat:-.04, shadows:[-.01,.01,.03], highs:[.04,.02,-.03], grain:.05, vig:.1 },
+  { id:"cp200", name:"Kodak CP200", label:"COLORPLUS 200", c:["#f6c21c","#c8102e"], desc:"柯達 ColorPlus 200：暖黃、飽和，最經典的日常底片",
+    temp:.35, tint:-.04, contrast:.12, fade:.05, sat:.15, shadows:[-.01,.025,0], highs:[.05,.03,-.05], greenShift:-.4, grain:.3, vig:.2 },
+  { id:"eterna", name:"Fuji E", label:"FUJI ETERNA", c:["#1f2e5c","#e8ecf6"], desc:"富士電影底片 Eterna：低對比、低飽和，偏青的電影感",
+    temp:-.1, contrast:-.22, fade:.06, sat:-.3, shadows:[-.02,.02,.045], highs:[.02,.01,-.01], grain:.15, vig:.15 },
+  { id:"cneg", name:"Classic Neg.", label:"CLASSIC NEG", c:["#1f8a3a","#f3e94a"], desc:"富士 Classic Neg：硬對比、暗部偏青，像 90 年代沖印店",
+    contrast:.25, fade:.03, sat:-.05, shadows:[-.03,.012,.045], highs:[.045,.02,-.02], greenShift:.5, grain:.2, vig:.15 },
+  { id:"chrome", name:"Classic Chrome", label:"CLASSIC CHROME", c:["#c99a2e","#3b2a14"], desc:"富士 Classic Chrome：沉穩低彩，紀實攝影的味道",
+    temp:.05, contrast:.2, sat:-.32, blueSat:-.35, shadows:[0,.006,.022], highs:[.02,.015,0], grain:.1, vig:.15 },
+  { id:"nneg", name:"Nostalgic Neg.", label:"NOSTALGIC", c:["#4057b8","#f2d27a"], desc:"富士 Nostalgic Neg：琥珀色亮部，柔和的懷舊午後",
+    temp:.3, contrast:-.05, fade:.05, sat:.05, shadows:[.01,0,.02], highs:[.065,.03,-.035], grain:.15, vig:.2, glow:.1 },
+  { id:"hass", name:"Hass", label:"HASS BLUE", c:["#2b2b2b","#9fc3e6"], desc:"哈蘇冷調：乾淨、偏冷、細節清楚",
+    temp:-.25, contrast:.06, sat:-.05, highs:[0,.01,.03], grain:0, vig:.1 },
+  { id:"cs800t", name:"CineStill 800T", label:"CINESTILL 800T", c:["#c8102e","#ffffff"], desc:"CineStill 800T：夜晚燈光周圍會泛出紅暈，偏藍的電影夜景",
+    temp:-.35, tint:-.04, contrast:.1, sat:.05, shadows:[-.02,.01,.05], halation:.75, grain:.35, vig:.2 },
+  { id:"v50d", name:"50D", label:"VISION 50D", c:["#2e7d6e","#ffffff"], desc:"柯達電影底片 50D：細緻、自然，日光下最乾淨",
+    contrast:.05, fade:.02, highs:[.02,.01,0], roll:.25, grain:.08, vig:.1 },
+  { id:"v250d", name:"250D", label:"VISION 250D", c:["#e8b54a","#5a2d0c"], desc:"柯達電影底片 250D：微暖、有一點顆粒的電影日景",
+    temp:.15, fade:.04, sat:.05, highs:[.03,.015,-.01], roll:.25, grain:.18, vig:.15 },
+  { id:"v500t", name:"500T", label:"VISION 500T", c:["#6c95c2","#ffffff"], desc:"柯達電影底片 500T：室內鎢絲燈片，冷暗部、暖亮部",
+    temp:-.2, contrast:.05, shadows:[-.02,.01,.04], highs:[.03,.01,-.02], halation:.3, grain:.3, vig:.2 },
+  { id:"instax", name:"Insta Color", label:"INSTAX", c:["#ffffff","#e4002b"], desc:"拍立得 Instax：明亮、色彩鮮，像現場吐出來的小相紙",
+    exp:.15, contrast:.15, fade:.03, sat:.2, temp:-.05, shadows:[0,.01,.03], roll:.3, grain:.05, vig:.1 },
+  { id:"instaxbw", name:"Insta STD", label:"INSTAX B&W", c:["#e9e6df","#222222"], desc:"Instax 黑白：柔和灰階，安靜的黑白小相紙",
+    mono:true, contrast:.2, fade:.05, grain:.15, vig:.15 },
+  { id:"polaroid", name:"Polaroid", label:"POLAROID", c:["#f4f1ea","#2a6fdb"], desc:"寶麗來：褪色、暗部偏綠，老家相簿的顏色",
+    temp:.1, contrast:-.1, fade:.15, sat:-.15, shadows:[0,.03,.02], highs:[.04,.03,-.03], glow:.2, grain:.2, vig:.35 },
+  { id:"grd", name:"GRd", label:"RICOH GR", c:["#1c1c1c","#7bd88f"], desc:"理光 GR 正片風：高對比、濃郁，街拍感重",
+    temp:.1, contrast:.3, sat:.15, shadows:[0,0,.02], highs:[.03,.01,-.03], grain:.12, vig:.25 },
+  { id:"natural", name:"Natural", label:"NATURAL", c:["#6cc3f0","#ffffff"], desc:"自然：只加一點底片質感，顏色幾乎不動",
+    contrast:.05, sat:.05, fade:.01, roll:.2, grain:.06, vig:.05 },
+  { id:"softy", name:"Softy", label:"SOFTY", c:["#e5c21f","#556b1e"], desc:"柔焦：低對比、亮部發光，粉嫩空氣感",
+    exp:.1, temp:.05, contrast:-.25, fade:.1, sat:-.1, highs:[.02,.008,.012], glow:.4, grain:.08, vig:.05 },
+  { id:"cinema", name:"Cinema", label:"CINEMA", c:["#e0602a","#13465a"], desc:"電影青橙調：暗部青、膚色暖，好萊塢大片感",
+    contrast:.15, sat:-.05, shadows:[-.035,.02,.065], highs:[.06,.02,-.04], grain:.15, vig:.25 },
+  { id:"hk", name:"HongKong", label:"HONG KONG", c:["#4a4130","#ffffff"], desc:"港風：綠調暗部、霓虹暖光，王家衛式的夜",
+    temp:.1, contrast:.2, sat:.15, shadows:[-.02,.045,0], highs:[.05,.03,-.04], greenShift:.3, halation:.25, grain:.3, vig:.3 },
+];
+const FRAMES = [
+  { id:"none", name:"無" }, { id:"black", name:"黑邊" }, { id:"white", name:"白邊" },
+  { id:"instax", name:"拍立得直式" }, { id:"wide", name:"拍立得橫式" },
+];
+
+/* ---------- 影像處理 ---------- */
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+function softclip(x, roll) {
+  if (roll <= 0) return x;
+  const t = 1 - roll;
+  return x <= t ? x : t + roll * (1 - Math.exp(-(x - t) / roll));
+}
+function contrastCurve(x, c) {
+  if (c >= 0) { const s = x * x * (3 - 2 * x); return x + (s - x) * Math.min(1, c * 1.8); }
+  return 0.5 + (x - 0.5) * (1 + c * 0.9);
+}
+function buildLUTs(f, adj) {
+  const gain = Math.pow(2, (f.exp || 0) + adj.exp * 0.8);
+  const temp = (f.temp || 0) + adj.temp * 0.6, tint = f.tint || 0;
+  const gains = [gain * (1 + temp * .12 + tint * .03), gain * (1 - tint * .06), gain * (1 - temp * .14 + tint * .03)];
+  const con = f.contrast || 0, fade = f.fade || 0, roll = f.roll ?? .15;
+  const sh = f.shadows || [0,0,0], hi = f.highs || [0,0,0];
+  return [0,1,2].map(c => {
+    const lut = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let x = (i / 255) * gains[c];
+      x = softclip(x, roll);
+      x = contrastCurve(clamp01(x), con);
+      x += sh[c] * 1.6 * (1 - x) * (1 - x) + hi[c] * 1.3 * x * x;
+      x = fade + x * (1 - fade * 1.1);
+      lut[i] = clamp01(x) * 255;
+    }
+    return lut;
+  });
+}
+function mulberry32(a) { return function() { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function boxBlur(src, w, h, r) {
+  const tmp = new Float32Array(src.length);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let y = 0; y < h; y++) {
+      let acc = 0; const row = y * w;
+      for (let x = -r; x <= r; x++) acc += src[row + Math.min(w - 1, Math.max(0, x))];
+      for (let x = 0; x < w; x++) {
+        tmp[row + x] = acc / (2 * r + 1);
+        acc += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)];
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let acc = 0;
+      for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
+      for (let y = 0; y < h; y++) {
+        src[y * w + x] = acc / (2 * r + 1);
+        acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
+      }
+    }
+  }
+  return src;
+}
+/* 亮部光暈遮罩：縮小取樣→挑亮處→模糊 */
+function glowMap(canvas, threshold) {
+  const W = canvas.width, H = canvas.height;
+  const sw = Math.max(16, Math.round(W / 8)), sh = Math.max(16, Math.round(H / 8));
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  const x = c.getContext("2d"); x.drawImage(canvas, 0, 0, sw, sh);
+  const d = x.getImageData(0, 0, sw, sh).data, m = new Float32Array(sw * sh);
+  for (let i = 0, j = 0; j < m.length; i += 4, j++) {
+    const l = (d[i] * .3 + d[i+1] * .59 + d[i+2] * .11) / 255;
+    m[j] = l > threshold ? (l - threshold) / (1 - threshold) : 0;
+  }
+  boxBlur(m, sw, sh, Math.max(2, Math.round(Math.min(sw, sh) / 30)));
+  return { m, sw, sh };
+}
+function sampleMap(g, fx, fy) {
+  const x = fx * (g.sw - 1), y = fy * (g.sh - 1);
+  const x0 = x | 0, y0 = y | 0, x1 = Math.min(g.sw - 1, x0 + 1), y1 = Math.min(g.sh - 1, y0 + 1);
+  const tx = x - x0, ty = y - y0, m = g.m, w = g.sw;
+  const a = m[y0 * w + x0] + (m[y0 * w + x1] - m[y0 * w + x0]) * tx;
+  const b = m[y1 * w + x0] + (m[y1 * w + x1] - m[y1 * w + x0]) * tx;
+  return a + (b - a) * ty;
+}
+
+/* 主處理：讀 srcCanvas，回傳處理後的 canvas */
+function develop(srcCanvas, f, adj) {
+  const W = srcCanvas.width, H = srcCanvas.height;
+  const out = document.createElement("canvas"); out.width = W; out.height = H;
+  const ctx = out.getContext("2d");
+  const src = srcCanvas.getContext("2d").getImageData(0, 0, W, H);
+  const s = src.data, img = ctx.createImageData(W, H), d = img.data;
+  const [LR, LG, LB] = buildLUTs(f, adj);
+  const sat = 1 + (f.sat || 0), gs = f.greenShift || 0, bs = f.blueSat || 0, mono = !!f.mono;
+  const k = adj.amount;
+  const grain = adj.grain, vig = adj.vig;
+  const halo = f.halation || 0, glow = adj.glow;
+  const hm = halo > 0 ? glowMap(srcCanvas, .72) : null;
+  const gmap = glow > 0 ? glowMap(srcCanvas, .55) : null;
+  // 顆粒：依照片大小放大顆粒，存檔與預覽觀感一致
+  const gsz = Math.max(1, Math.round(Math.max(W, H) / 1300));
+  const gw = Math.ceil(W / gsz), gh = Math.ceil(H / gsz);
+  let noise = null;
+  if (grain > 0) {
+    const rnd = mulberry32(7); noise = new Float32Array(gw * gh);
+    for (let i = 0; i < noise.length; i++) noise[i] = (rnd() + rnd() + rnd() - 1.5) * 1.15;
+  }
+  const cx = W / 2, cy = H / 2, md = Math.hypot(cx, cy);
+  for (let y = 0; y < H; y++) {
+    const dy2 = (y - cy) * (y - cy), fy = y / (H - 1 || 1), nrow = ((y / gsz) | 0) * gw;
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const or = s[i], og = s[i+1], ob = s[i+2];
+      let r = LR[or], g = LG[og], b = LB[ob];
+      if (mono) {
+        const l = r * .3 + g * .59 + b * .11; r = g = b = l;
+      } else {
+        if (gs !== 0) {
+          const w = g - Math.max(r, b);
+          if (w > 0) { if (gs > 0) { b += w * gs; g -= w * gs * .25; } else { r += w * -gs; } }
+        }
+        if (bs !== 0) {
+          const w = b - Math.max(r, g);
+          if (w > 0) { const l = r * .3 + g * .59 + b * .11, t = (w / 255) * bs * 2; r += (r - l) * t; g += (g - l) * t; b += (b - l) * t; }
+        }
+        if (sat !== 1) {
+          const l = r * .299 + g * .587 + b * .114;
+          r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat;
+        }
+      }
+      const fx = x / (W - 1 || 1);
+      if (hm) { const h = sampleMap(hm, fx, fy) * halo; r += (255 - r) * h; g += (255 - g) * h * .28; b += (255 - b) * h * .12; }
+      if (gmap) { const h = sampleMap(gmap, fx, fy) * glow * .8; r += (255 - r) * h; g += (255 - g) * h * .96; b += (255 - b) * h * .9; }
+      if (vig > 0) {
+        const dd = Math.sqrt((x - cx) * (x - cx) + dy2) / md;
+        const t = dd < .45 ? 0 : Math.min(1, (dd - .45) / .6);
+        const v = 1 - vig * .75 * t * t * (3 - 2 * t);
+        r *= v; g *= v; b *= v;
+      }
+      if (noise) {
+        const l = (r * .3 + g * .59 + b * .11) / 255;
+        const n = noise[nrow + ((x / gsz) | 0)] * grain * 30 * (.35 + 2.6 * l * (1 - l));
+        r += n; g += n; b += n;
+      }
+      d[i]   = or + (r - or) * k;
+      d[i+1] = og + (g - og) * k;
+      d[i+2] = ob + (b - ob) * k;
+      d[i+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+/* 依相框裁切：拍立得＝正方形，Instax mini＝46:62 */
+function cropFor(img, frame, maxSide) {
+  let sw = img.naturalWidth || img.width, sh = img.naturalHeight || img.height, sx = 0, sy = 0;
+  let ratio = null;
+  if (frame === "instax") ratio = 46 / 62;  // Instax mini 相紙畫面 46×62mm（直）
+  if (frame === "wide") ratio = 99 / 62;    // Instax Wide 相紙畫面 99×62mm（橫）
+  if (ratio) {
+    if (sw / sh > ratio) { const nw = sh * ratio; sx = (sw - nw) / 2; sw = nw; }
+    else { const nh = sw / ratio; sy = (sh - nh) / 2; sh = nh; }
+  }
+  const scale = Math.min(1, maxSide / Math.max(sw, sh));
+  const c = document.createElement("canvas");
+  c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high";
+  x.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+
+function stampText(date) {
+  const p = n => String(n).padStart(2, "0");
+  return `'${p(date.getFullYear() % 100)} ${p(date.getMonth() + 1)} ${p(date.getDate())}`;
+}
+function drawStamp(ctx, x, y, w, h, date) {
+  const size = Math.round(Math.min(w, h) * .05);
+  ctx.save();
+  ctx.font = `${size}px "Share Tech Mono", monospace`;
+  ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ff8a1f"; ctx.shadowColor = "rgba(255,90,0,.75)"; ctx.shadowBlur = size * .45;
+  ctx.globalAlpha = .92;
+  ctx.fillText(stampText(date), x + w - size * 1.1, y + h - size * .9);
+  ctx.restore();
+}
+
+/* 相紙紋理：細微紙纖維雜訊，做成可重複的小圖塊 */
+let paperTile = null;
+function paperPattern(ctx) {
+  if (!paperTile) {
+    paperTile = document.createElement("canvas"); paperTile.width = paperTile.height = 160;
+    const x = paperTile.getContext("2d"), d = x.createImageData(160, 160), rnd = mulberry32(11);
+    for (let i = 0; i < d.data.length; i += 4) {
+      const v = (rnd() - .5) * 18;
+      d.data[i] = 128 + v; d.data[i+1] = 128 + v; d.data[i+2] = 126 + v; d.data[i+3] = 22;
+    }
+    x.putImageData(d, 0, 0);
+  }
+  return ctx.createPattern(paperTile, "repeat");
+}
+function roundRectPath(x, X, Y, W, H, r) { x.beginPath(); x.roundRect(X, Y, W, H, r); }
+
+/* 寫實 Instax mini 相紙：54×86mm、畫面 46×62mm、四角圓、紙紋、畫面微凹、亮面光澤 */
+function composeInstaxMini(photo, stamp, date) {
+  const k = photo.width / 46;                    // 每 mm 幾個像素
+  const CW = Math.round(54 * k), CH = Math.round(86 * k);
+  const L = Math.round(4 * k), T = Math.round(6.5 * k), w = photo.width, h = photo.height;
+  const c = document.createElement("canvas"); c.width = CW; c.height = CH;
+  const x = c.getContext("2d");
+  // 紙卡
+  roundRectPath(x, 0, 0, CW, CH, 1.2 * k); x.save(); x.clip();
+  const base = x.createLinearGradient(0, 0, CW, CH);
+  base.addColorStop(0, "#fbfaf6"); base.addColorStop(.6, "#f3f1ea"); base.addColorStop(1, "#ebe8df");
+  x.fillStyle = base; x.fillRect(0, 0, CW, CH);
+  x.fillStyle = paperPattern(x); x.fillRect(0, 0, CW, CH);
+  // 底部較厚的藥劑袋區：極淡的隆起感
+  const pod = x.createLinearGradient(0, T + h + 4 * k, 0, CH);
+  pod.addColorStop(0, "rgba(0,0,0,0)"); pod.addColorStop(.5, "rgba(0,0,0,.025)"); pod.addColorStop(1, "rgba(0,0,0,.06)");
+  x.fillStyle = pod; x.fillRect(0, T + h, CW, CH - T - h);
+  // 畫面四周的紙緣凸起（亮邊＋暗邊）
+  x.strokeStyle = "rgba(255,255,255,.9)"; x.lineWidth = .35 * k; x.strokeRect(L - .25 * k, T - .25 * k, w + .5 * k, h + .5 * k);
+  x.strokeStyle = "rgba(0,0,0,.10)"; x.lineWidth = .15 * k; x.strokeRect(L - .5 * k, T - .5 * k, w + k, h + k);
+  // 照片
+  x.drawImage(photo, L, T);
+  // 畫面微凹：內側陰影
+  const sh = .9 * k;
+  const edge = (x0, y0, x1, y1, X, Y, W, H) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, "rgba(0,0,0,.28)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(X, Y, W, H); };
+  edge(0, T, 0, T + sh, L, T, w, sh);
+  edge(L, 0, L + sh, 0, L, T, sh, h);
+  edge(0, T + h, 0, T + h - sh * .6, L, T + h - sh * .6, w, sh * .6);
+  edge(L + w, 0, L + w - sh * .6, 0, L + w - sh * .6, T, sh * .6, h);
+  x.strokeStyle = "rgba(0,0,0,.22)"; x.lineWidth = Math.max(1, .12 * k); x.strokeRect(L, T, w, h);
+  if (stamp) drawStamp(x, L, T, w, h, date);
+  // 亮面相紙的斜向反光
+  const gloss = x.createLinearGradient(0, 0, CW, CH * .7);
+  gloss.addColorStop(0, "rgba(255,255,255,0)"); gloss.addColorStop(.42, "rgba(255,255,255,0)");
+  gloss.addColorStop(.5, "rgba(255,255,255,.07)"); gloss.addColorStop(.6, "rgba(255,255,255,0)");
+  x.fillStyle = gloss; x.fillRect(L, T, w, h);
+  x.restore();
+  // 紙卡外緣的細邊
+  roundRectPath(x, .5, .5, CW - 1, CH - 1, 1.2 * k); x.strokeStyle = "rgba(0,0,0,.12)"; x.lineWidth = 1; x.stroke();
+  return c;
+}
+
+/* 相紙加柔和的落地影子（右下方），外圍透明、不加底色 */
+function withSoftShadow(card) {
+  const w = card.width, pad = Math.round(w * .07);
+  const c = document.createElement("canvas"); c.width = w + pad * 2; c.height = card.height + pad * 2;
+  const x = c.getContext("2d");
+  x.save(); x.shadowColor = "rgba(0,0,0,.35)"; x.shadowBlur = w * .05; x.shadowOffsetX = w * .012; x.shadowOffsetY = w * .03; x.drawImage(card, pad, pad); x.restore();
+  x.save(); x.shadowColor = "rgba(0,0,0,.25)"; x.shadowBlur = w * .008; x.shadowOffsetY = w * .004; x.drawImage(card, pad, pad); x.restore();
+  return c;
+}
+function compose(photo, frame, stamp, date) {
+  if (frame === "instax") return withSoftShadow(composeInstaxMini(photo, stamp, date));
+  const w = photo.width, h = photo.height, s = Math.min(w, h);
+  let L = 0, T = 0, R = 0, B = 0, paper = null;
+  if (frame === "white") { L = T = R = B = Math.round(s * .045); paper = "#fbfaf7"; }
+  if (frame === "black") { L = T = R = B = Math.round(s * .045); paper = "#0b0b0b"; }
+  if (frame === "wide") { // Instax Wide：108×86mm，畫面 99×62mm
+    const k = w / 99; L = R = Math.round(4.5 * k); T = Math.round(7 * k); B = Math.round(17 * k); paper = "#fbfaf7";
+  }
+  const c = document.createElement("canvas"); c.width = w + L + R; c.height = h + T + B;
+  const x = c.getContext("2d");
+  if (paper) { x.fillStyle = paper; x.fillRect(0, 0, c.width, c.height); }
+  x.drawImage(photo, L, T);
+  if (frame === "wide") { x.strokeStyle = "rgba(0,0,0,.12)"; x.lineWidth = Math.max(1, s / 500); x.strokeRect(L, T, w, h); }
+  if (stamp) drawStamp(x, L, T, w, h, date);
+  return frame === "wide" ? withSoftShadow(c) : c;
+}
+/* ---------- 範例照片（還沒選照片時顯示） ---------- */
+function sampleImage() {
+  const W = 1000, H = 1250, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  let g = x.createLinearGradient(0, 0, 0, H * .62);
+  g.addColorStop(0, "#3d6fb0"); g.addColorStop(.55, "#9db8d6"); g.addColorStop(.85, "#f2c49b"); g.addColorStop(1, "#f7a46b");
+  x.fillStyle = g; x.fillRect(0, 0, W, H * .62);
+  const sun = x.createRadialGradient(W * .7, H * .5, 0, W * .7, H * .5, 160);
+  sun.addColorStop(0, "#fffbe8"); sun.addColorStop(.25, "#fff0c2"); sun.addColorStop(1, "rgba(255,200,140,0)");
+  x.fillStyle = sun; x.fillRect(0, 0, W, H * .62);
+  x.fillStyle = "#fffdf2"; x.beginPath(); x.arc(W * .7, H * .5, 38, 0, Math.PI * 2); x.fill();
+  // 山丘
+  x.fillStyle = "#4f7a3a"; x.beginPath(); x.moveTo(0, H * .6);
+  for (let i = 0; i <= 20; i++) x.lineTo(W * i / 20, H * .56 + Math.sin(i * .9) * 22 + Math.cos(i * 1.7) * 12);
+  x.lineTo(W, H * .7); x.lineTo(0, H * .7); x.fill();
+  // 海
+  g = x.createLinearGradient(0, H * .62, 0, H * .78); g.addColorStop(0, "#5f8fb5"); g.addColorStop(1, "#1f4e75");
+  x.fillStyle = g; x.fillRect(0, H * .62, W, H * .16);
+  x.fillStyle = "rgba(255,240,210,.55)";
+  for (let i = 0; i < 26; i++) x.fillRect(W * .62 + Math.sin(i) * 40, H * .63 + i * 7, 60 - i * 1.6, 2);
+  // 木桌
+  g = x.createLinearGradient(0, H * .78, 0, H); g.addColorStop(0, "#c58a52"); g.addColorStop(1, "#7a4a24");
+  x.fillStyle = g; x.fillRect(0, H * .78, W, H * .22);
+  x.strokeStyle = "rgba(60,30,10,.25)"; x.lineWidth = 2;
+  for (let i = 0; i < 9; i++) { x.beginPath(); x.moveTo(0, H * .8 + i * 26); x.bezierCurveTo(W * .3, H * .79 + i * 27, W * .6, H * .82 + i * 25, W, H * .8 + i * 26); x.stroke(); }
+  // 色卡（含膚色）
+  const sw = ["#c2876b", "#e8c3a6", "#d93a2b", "#f2c230", "#3d8f4a", "#2f6db5"];
+  sw.forEach((col, i) => { x.fillStyle = col; x.fillRect(70 + i * 148, H * .85, 120, 120); });
+  return c;
+}
+
+/* ---------- 相機圖示（精修手繪 SVG，正面＋右側厚度＋頂面） ---------- */
+const CAMERA_ICONS = (() => {
+  const hx = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => "#" + hx(a).map((v, i) => Math.round(v + (hx(b)[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  const lt = (c, t) => mix(c, "#ffffff", t), dk = (c, t) => mix(c, "#000000", t);
+  const K = .6; // 側面斜率
+
+  function common(p) {
+    return `
+    <linearGradient id="${p}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfbf9"/><stop offset=".45" stop-color="#b9b9b4"/><stop offset=".7" stop-color="#e9e9e5"/><stop offset="1" stop-color="#8e8e8a"/></linearGradient>
+    <linearGradient id="${p}bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4a4a"/><stop offset=".5" stop-color="#121212"/><stop offset="1" stop-color="#2e2e2e"/></linearGradient>
+    <radialGradient id="${p}g" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#9ab0e0"/><stop offset=".22" stop-color="#2f3e6a"/><stop offset=".6" stop-color="#0c1120"/><stop offset="1" stop-color="#020306"/></radialGradient>
+    <radialGradient id="${p}c" cx=".72" cy=".74" r=".5"><stop offset="0" stop-color="#c58bff" stop-opacity=".6"/><stop offset="1" stop-color="#c58bff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${p}vf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b7d96"/><stop offset=".5" stop-color="#101824"/><stop offset="1" stop-color="#43546a"/></linearGradient>
+    <linearGradient id="${p}fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e7e3d8"/><stop offset="1" stop-color="#b6b1a3"/></linearGradient>
+    <pattern id="${p}fr" width="3" height="3" patternUnits="userSpaceOnUse"><path d="M0 1.5h3" stroke="#9d988a" stroke-width=".6"/></pattern>
+    <filter id="${p}b" x="-40%" y="-40%" width="180%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="${p}x"><feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+    <filter id="${p}lx"><feTurbulence type="turbulence" baseFrequency=".9" numOctaves="2" seed="9"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 -.12"/><feComposite in2="SourceGraphic" operator="in"/></filter>`;
+  }
+  function G(p, n, c) {
+    return `<linearGradient id="${p}${n}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lt(c, .2)}"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${dk(c, .28)}"/></linearGradient>
+    <linearGradient id="${p}${n}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${dk(c, .3)}"/><stop offset="1" stop-color="${dk(c, .55)}"/></linearGradient>
+    <linearGradient id="${p}${n}t" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${lt(c, .06)}"/><stop offset="1" stop-color="${lt(c, .42)}"/></linearGradient>`;
+  }
+  function box(p, n, x, y, w, h, d, rx = 5, tex = "x") {
+    return `<path d="M${x + w - 1} ${y + rx * .4} L${x + w + d} ${y - d * K} V${y + h - d * K} L${x + w - 1} ${y + h}Z" fill="url(#${p}${n}s)"/>
+    <path d="M${x + rx * .6} ${y + 1} L${x + d} ${y - d * K} H${x + w + d} L${x + w - 1} ${y + 1}Z" fill="url(#${p}${n}t)"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="url(#${p}${n}f)"/>
+    ${tex ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#fff" filter="url(#${p}${tex})"/>` : ""}
+    <path d="M${x + rx} ${y + 1.3} H${x + w - rx}" stroke="#fff" stroke-opacity=".5" stroke-width="1.3"/>`;
+  }
+  function panel(p, n, x, y, w, h, rx = 0, tex = "lx") {
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="url(#${p}${n}f)"/>
+    ${tex ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#fff" filter="url(#${p}${tex})"/>` : ""}
+    <path d="M${x} ${y + .6} H${x + w}" stroke="#000" stroke-opacity=".35" stroke-width="1"/>`;
+  }
+  function lens(p, cx, cy, r, ring = "black") {
+    const fill = ring === "metal" ? `url(#${p}m)` : ring === "black" ? `url(#${p}bar)` : ring;
+    return `<circle cx="${cx}" cy="${cy + 3}" r="${r + 1}" fill="#000" opacity=".5" filter="url(#${p}b)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="1"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .8}" fill="url(#${p}bar)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .74}" fill="none" stroke="#8a8a8a" stroke-opacity=".55" stroke-width=".7" stroke-dasharray=".8 1.6"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .64}" fill="#040404"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .56}" fill="url(#${p}g)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .56}" fill="url(#${p}c)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * .2}" fill="#000" opacity=".55"/>
+    <ellipse cx="${cx - r * .2}" cy="${cy - r * .24}" rx="${r * .2}" ry="${r * .11}" fill="#fff" opacity=".82" transform="rotate(-35 ${cx - r * .2} ${cy - r * .24})"/>
+    <circle cx="${cx + r * .24}" cy="${cy + r * .24}" r="${r * .06}" fill="#ffd9a6" opacity=".75"/>
+    <path d="M${cx - r * .78} ${cy - r * .5} A${r * .93} ${r * .93} 0 0 1 ${cx + r * .1} ${cy - r * .92}" stroke="#fff" stroke-opacity=".45" stroke-width="1.2" fill="none"/>`;
+  }
+  const flash = (p, x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#1c1c1c"/><rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="2" fill="url(#${p}fl)"/><rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="2" fill="url(#${p}fr)" opacity=".7"/><path d="M${x + 4} ${y + 4} h${w * .5}" stroke="#fff" stroke-width="1.4" opacity=".9"/>`;
+  const finder = (p, x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.5" fill="#141414"/><rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="1.5" fill="url(#${p}vf)"/><path d="M${x + 4} ${y + 4} h${w * .35}" stroke="#d6e4ff" stroke-width="1.1" opacity=".7"/>`;
+  const shadow = (p, cx, w) => `<ellipse cx="${cx}" cy="166" rx="${w}" ry="8" fill="#000" opacity=".6" filter="url(#${p}b)"/>`;
+  const button = (x, y, w, h, c = "#2a2a2a") => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.5" fill="${c}"/><rect x="${x}" y="${y}" width="${w}" height="${h * .35}" rx="1.5" fill="#fff" opacity=".22"/>`;
+  const dial = (p, cx, cy, r, h, fill) => `<ellipse cx="${cx}" cy="${cy + h}" rx="${r}" ry="${r * .32}" fill="${dk(fill, .45)}"/><rect x="${cx - r}" y="${cy}" width="${r * 2}" height="${h}" fill="url(#${p}m)"/><path d="${Array.from({length: 9}, (_, i) => `M${cx - r + 1 + i * (2 * r - 2) / 8} ${cy} v${h}`).join(" ")}" stroke="#000" stroke-opacity=".25" stroke-width=".7"/><ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r * .32}" fill="${lt(fill, .3)}"/>`;
+  const txt = (x, y, s, size, fill, weight = 700, ls = .6, font = "Arial, Helvetica, sans-serif") => `<text x="${x}" y="${y}" font-family="${font}" font-weight="${weight}" font-size="${size}" fill="${fill}" letter-spacing="${ls}">${s}</text>`;
+
+  const draw = {
+    cap(p) {
+      return `${shadow(p, 100, 50)}
+      <circle cx="100" cy="100" r="54" fill="url(#${p}bar)"/>
+      <circle cx="100" cy="100" r="54" fill="none" stroke="#666" stroke-width="2.4" stroke-dasharray="1.2 2.2"/>
+      <circle cx="100" cy="100" r="44" fill="#151515"/><circle cx="100" cy="100" r="44" fill="#fff" filter="url(#${p}x)"/>
+      <circle cx="100" cy="100" r="44" fill="none" stroke="#3a3a3a" stroke-width="1.5"/>
+      <path d="M62 78 A44 44 0 0 1 112 57" stroke="#fff" stroke-opacity=".35" stroke-width="2" fill="none"/>
+      ${txt(100, 96, "NO FILTER", 11, "#cfcfcf", 700, 1.5).replace("<text", '<text text-anchor="middle"')}
+      ${txt(100, 114, "ORIGINAL", 9, "#8a8a8a", 400, 2).replace("<text", '<text text-anchor="middle"')}`;
+    },
+    compact(p, c) {
+      return `${G(p, "b", c.body)}${shadow(p, 98, 74)}
+      ${button(126, 58, 22, 9)}
+      ${box(p, "b", 28, 68, 136, 72, 10, 10)}
+      <rect x="28" y="124" width="136" height="3" fill="${c.accent}" opacity=".9"/>
+      ${flash(p, 38, 78, 32, 18)}${finder(p, 138, 78, 18, 14)}
+      <circle cx="122" cy="84" r="3.4" fill="#141414"/><circle cx="122" cy="84" r="1.8" fill="#5c2020"/>
+      ${lens(p, 96, 104, 24)}
+      ${txt(36, 136, c.text, 9, c.ink || "#f3eee4", 700, 1)}`;
+    },
+    disposable(p, c) {
+      return `${G(p, "y", c.body)}${G(p, "r", c.band)}${shadow(p, 100, 78)}
+      ${button(128, 46, 22, 9)}
+      <rect x="48" y="47" width="30" height="8" rx="2" fill="#1d1d1d"/><path d="${Array.from({length: 9}, (_, i) => `M${50 + i * 3} 48v6`).join("")}" stroke="#4a4a4a" stroke-width="1"/>
+      ${box(p, "y", 24, 58, 146, 90, 10, 5)}
+      <path d="M170 104 l10 -6 v44 l-10 6z" fill="url(#${p}rs)"/>
+      <rect x="24" y="104" width="146" height="44" fill="url(#${p}rf)"/><rect x="24" y="104" width="146" height="44" fill="#fff" filter="url(#${p}x)"/>
+      <rect x="24" y="142" width="146" height="6" rx="3" fill="${dk(c.band, .4)}"/>
+      <path d="M24 104 h146" stroke="${lt(c.body, .2)}" stroke-width="1.2"/>
+      ${flash(p, 32, 66, 38, 24)}${finder(p, 142, 66, 20, 16)}
+      ${lens(p, 100, 86, 21)}
+      ${txt(34, 128, c.text, 17, c.body, 900, .5, "Arial Black, Arial, sans-serif")}
+      ${txt(90, 127, c.sub, 10, lt(c.body, .7), 700, .3)}
+      <rect x="34" y="132" width="126" height="1.2" fill="${c.body}" opacity=".7"/>`;
+    },
+    rangefinder(p, c) {
+      return `${G(p, "t", c.plate)}${G(p, "l", c.leather)}${shadow(p, 100, 80)}
+      ${dial(p, 140, 50, 11, 7, c.plate)}${dial(p, 112, 54, 7, 4, c.plate)}
+      <rect x="70" y="52" width="22" height="7" rx="1" fill="${dk(c.plate, .35)}"/><rect x="72" y="53" width="18" height="2" fill="#000" opacity=".4"/>
+      ${box(p, "t", 22, 62, 154, 80, 9, 6)}
+      ${panel(p, "l", 22, 84, 154, 50)}
+      ${finder(p, 32, 68, 30, 13)}<rect x="68" y="69" width="10" height="10" rx="1.5" fill="#141414"/><rect x="69.5" y="70.5" width="7" height="7" rx="1" fill="url(#${p}vf)"/>
+      ${txt(170, 78, c.label, 7, dk(c.plate, .55), 700, 1).replace("<text", '<text text-anchor="end"')}
+      <rect x="176" y="72" width="5" height="9" rx="1.5" fill="${dk(c.plate, .3)}"/>
+      ${lens(p, 92, 110, 28, "metal")}`;
+    },
+    cine(p, c) {
+      const body = c.body || "#2e3035";
+      return `${G(p, "k", body)}${G(p, "r", dk(body, .1))}${shadow(p, 96, 80)}
+      <circle cx="66" cy="52" r="26" fill="url(#${p}rf)"/><circle cx="66" cy="52" r="26" fill="none" stroke="${lt(body, .25)}" stroke-width="1.2"/><circle cx="66" cy="52" r="7" fill="${lt(body, .2)}"/><circle cx="66" cy="52" r="3" fill="${dk(body, .5)}"/>
+      <circle cx="120" cy="52" r="26" fill="url(#${p}rf)"/><circle cx="120" cy="52" r="26" fill="none" stroke="${lt(body, .25)}" stroke-width="1.2"/><circle cx="120" cy="52" r="7" fill="${lt(body, .2)}"/><circle cx="120" cy="52" r="3" fill="${dk(body, .5)}"/>
+      ${box(p, "k", 24, 74, 132, 70, 14, 6)}
+      <rect x="160" y="88" width="16" height="12" rx="3" fill="${dk(body, .45)}"/><rect x="172" y="86" width="10" height="16" rx="4" fill="#111"/>
+      <rect x="58" y="80" width="62" height="58" rx="4" fill="#17181b"/><rect x="58" y="80" width="62" height="58" rx="4" fill="none" stroke="${lt(body, .25)}" stroke-width="1"/>
+      <path d="M58 80 l-6 -6 M120 80 l6 -6 M58 138 l-6 6 M120 138 l6 6" stroke="#17181b" stroke-width="4"/>
+      ${lens(p, 89, 109, 22)}
+      <rect x="126" y="90" width="26" height="13" rx="1.5" fill="${c.tape}"/><rect x="126" y="90" width="26" height="13" rx="1.5" fill="#fff" filter="url(#${p}x)"/>
+      ${txt(129, 100, c.text, c.text.length > 4 ? 6.2 : 8, c.ink || "#ffffff", 900, .3)}
+      <circle cx="142" cy="82" r="2.6" fill="#ff3b30"/><circle cx="142" cy="82" r="5" fill="#ff3b30" opacity=".25"/>`;
+    },
+    medium(p) {
+      return `${G(p, "h", "#d2d3cf")}${G(p, "hl", "#1e1e1e")}${G(p, "l", "#222222")}${shadow(p, 104, 64)}
+      ${box(p, "hl", 64, 46, 72, 18, 10, 2)}
+      ${box(p, "h", 48, 64, 104, 82, 14, 6)}
+      ${panel(p, "l", 54, 70, 92, 70, 3)}
+      <ellipse cx="160" cy="104" rx="5" ry="11" fill="url(#${p}m)"/><ellipse cx="160" cy="104" rx="2" ry="5" fill="#555"/>
+      ${lens(p, 100, 105, 31, "metal")}
+      ${txt(58, 80, "6×6", 8, "#bdbdbd", 700, .8)}`;
+    },
+    instax(p, c) {
+      return `${G(p, "i", c.body)}${shadow(p, 100, 66)}
+      ${box(p, "i", 34, 46, 128, 108, 8, 22)}
+      <rect x="34" y="46" width="128" height="32" rx="22" fill="#fff" opacity=".18"/>
+      <path d="M64 42 h70" stroke="${dk(c.body, .45)}" stroke-width="2.4" stroke-linecap="round"/>
+      ${flash(p, 46, 58, 34, 17)}${finder(p, 136, 58, 16, 14)}
+      <circle cx="148" cy="100" r="6" fill="${lt(c.body, .35)}"/><circle cx="148" cy="100" r="6" fill="none" stroke="${dk(c.body, .2)}"/>
+      ${lens(p, 96, 110, 33, c.ring || lt(c.body, .55))}`;
+    },
+    polaroid(p) {
+      return `${G(p, "pb", "#2c2c2c")}${G(p, "pt", "#232323")}${shadow(p, 100, 78)}
+      ${box(p, "pt", 40, 54, 112, 22, 10, 6)}
+      ${box(p, "pb", 26, 76, 140, 74, 12, 8)}
+      ${flash(p, 48, 58, 50, 15)}${finder(p, 126, 58, 18, 14)}
+      ${["#e4002b", "#ff8a00", "#ffd200", "#3bb54a", "#1f6fd6"].map((col, i) => `<rect x="${126 + i * 5}" y="78" width="5" height="70" fill="${col}"/>`).join("")}
+      <rect x="40" y="140" width="76" height="3" rx="1.5" fill="#0d0d0d"/>
+      ${lens(p, 78, 108, 25)}
+      <circle cx="152" cy="94" r="5.5" fill="#d8261f"/><circle cx="152" cy="94" r="5.5" fill="none" stroke="#7a110c"/>`;
+    },
+    gr(p) {
+      return `${G(p, "g", "#2b2b2b")}${G(p, "gg", "#1c1c1c")}${shadow(p, 100, 82)}
+      ${dial(p, 140, 60, 9, 6, "#2b2b2b")}${button(112, 60, 14, 6)}
+      ${box(p, "g", 20, 72, 156, 62, 8, 9, "lx")}
+      ${panel(p, "gg", 22, 74, 34, 58, 9)}
+      <circle cx="66" cy="84" r="3.2" fill="#121212"/><circle cx="66" cy="84" r="1.6" fill="#a06a1e"/>
+      ${lens(p, 112, 103, 21)}
+      <circle cx="112" cy="103" r="22.5" fill="none" stroke="#7bd88f" stroke-width="1.8"/>
+      ${txt(28, 128, "GR", 12, "#d9d9d9", 800, 1)}
+      ${txt(144, 128, "28mm", 7, "#9a9a9a", 700, .5)}`;
+    },
+  };
+
+  /* 依實機外觀補的機型（正面視角：使用者右手握把在畫面左邊，觀景窗在畫面右上） */
+  Object.assign(draw, {
+    // Fujifilm X-H1／GFX100S：中央觀景窗凸起、左側大握把、肩部小螢幕
+    mirrorless(p, c) {
+      const gfx = !!c.gfx, X = 24, Y = gfx ? 78 : 82, W = gfx ? 152 : 148, H = gfx ? 66 : 58;
+      const cx = gfx ? 110 : 108, hx1 = gfx ? 82 : 86, hx2 = gfx ? 138 : 130, ht = gfx ? 24 : 26;
+      return `${G(p, "d", c.body)}${G(p, "dg", dk(c.body, .15))}${shadow(p, 100, 80)}
+      <path d="M${hx2} ${Y} L${hx2 - 6} ${Y - ht} L${hx2 + 2} ${Y - ht - 5} L${hx2 + 9} ${Y - 5}Z" fill="url(#${p}ds)"/>
+      <path d="M${hx1} ${Y} L${hx1 + 6} ${Y - ht} H${hx2 - 6} L${hx2} ${Y}Z" fill="url(#${p}df)"/>
+      <path d="M${hx1 + 6} ${Y - ht} L${hx1 + 13} ${Y - ht - 5} H${hx2 + 1} L${hx2 - 6} ${Y - ht}Z" fill="url(#${p}dt)"/>
+      <rect x="${hx1 + 14}" y="${Y - ht + 6}" width="${hx2 - hx1 - 28}" height="5" rx="1.5" fill="#000" opacity=".35"/>
+      ${dial(p, hx1 - 12, Y - 13, 9, 6, c.body)}${dial(p, hx2 + 20, Y - 12, 9, 6, c.body)}
+      ${box(p, "d", X, Y, W, H, 10, 6)}
+      <rect x="${X - 4}" y="${Y - 6}" width="40" height="${H + 6}" rx="13" fill="url(#${p}dgf)"/>
+      <rect x="${X - 4}" y="${Y - 6}" width="40" height="${H + 6}" rx="13" fill="#fff" filter="url(#${p}lx)"/>
+      <path d="M${X + 4} ${Y - 4} h22" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/>
+      ${button(X + 8, Y - 13, 16, 7, "#3a3a3a")}
+      <rect x="${X + 42}" y="${Y - 6}" width="22" height="5" rx="1" fill="#0f1a14"/><rect x="${X + 43}" y="${Y - 5}" width="20" height="3" rx="1" fill="#8fd1a6" opacity=".35"/>
+      <circle cx="${cx}" cy="${Y + H / 2 + 3}" r="${gfx ? 33 : 30}" fill="url(#${p}m)" opacity=".85"/>
+      ${lens(p, cx, Y + H / 2 + 3, gfx ? 30 : 27)}
+      <circle cx="${X + 50}" cy="${Y + 12}" r="2.4" fill="#d38a2a"/>`;
+    },
+    // Fujifilm X100 系列／X-Pro3：扁長方形旁軸機身，觀景窗在畫面右上，轉盤在頂部左側
+    rangefinderX(p, c) {
+      const X = 20, Y = 66, W = c.wide ? 160 : 152, H = c.wide ? 76 : 72;
+      return `${G(p, "t", c.plate)}${G(p, "l", c.leather)}${shadow(p, 100, 82)}
+      ${dial(p, 50, Y - 14, 10, 7, c.plate)}${dial(p, 74, Y - 10, 7, 4, c.plate)}${button(90, Y - 8, 10, 5, dk(c.plate, .2))}
+      <rect x="112" y="${Y - 6}" width="22" height="6" rx="1" fill="${dk(c.plate, .35)}"/>
+      ${box(p, "t", X, Y, W, H, 9, 6)}
+      ${panel(p, "l", X, Y + 20, W, H - 28)}
+      ${finder(p, X + W - 40, Y + 5, 30, 13)}
+      <rect x="${X + W - 52}" y="${Y + 7}" width="8" height="9" rx="2" fill="${dk(c.plate, .3)}"/>
+      <rect x="${X + W - 1}" y="${Y + 8}" width="5" height="9" rx="1.5" fill="${dk(c.plate, .3)}"/>
+      ${lens(p, c.lensX, Y + 44, c.lensR, c.ring)}`;
+    },
+    // 經典機械單眼（Canon AE-1／Pentax K1000）：中央五稜鏡、銀頂黑皮
+    slr(p, c) {
+      const X = 24, Y = 82, W = 152, H = 56;
+      return `${G(p, "t", c.plate)}${G(p, "l", c.leather)}${shadow(p, 100, 82)}
+      <path d="M122 ${Y} L114 ${Y - 30} L120 ${Y - 34} L130 ${Y - 4}Z" fill="url(#${p}ts)"/>
+      <path d="M78 ${Y} L86 ${Y - 30} H114 L122 ${Y}Z" fill="url(#${p}tf)"/>
+      <path d="M86 ${Y - 30} L92 ${Y - 34} H120 L114 ${Y - 30}Z" fill="url(#${p}tt)"/>
+      <rect x="91" y="${Y - 20}" width="18" height="8" rx="1" fill="${c.prismPlate || "#1b1b1b"}"/>
+      ${dial(p, 50, Y - 12, 10, 6, c.plate)}<path d="M30 ${Y - 6} l26 -6" stroke="${dk(c.plate, .2)}" stroke-width="4" stroke-linecap="round"/>
+      ${dial(p, 152, Y - 11, 8, 6, c.plate)}
+      ${box(p, "t", X, Y, W, H, 9, 5)}
+      ${panel(p, "l", X, Y + 10, W, H - 18)}
+      ${c.timer ? `<rect x="58" y="${Y + 16}" width="6" height="16" rx="2" fill="#1a1a1a"/>` : ""}
+      <circle cx="100" cy="${Y + 30}" r="31" fill="url(#${p}m)"/>
+      ${lens(p, 100, Y + 30, 28)}`;
+    },
+    // Olympus Trip 35：銀頂黑皮小機身，鏡頭外圈一圈蜂窩測光窗
+    trip(p) {
+      const X = 26, Y = 70, W = 148, H = 68;
+      return `${G(p, "t", "#d6d6d2")}${G(p, "l", "#1e1e1e")}${shadow(p, 100, 78)}
+      ${button(42, Y - 8, 14, 7, "#bdbdb8")}${dial(p, 150, Y - 9, 8, 5, "#d6d6d2")}
+      ${box(p, "t", X, Y, W, H, 9, 6)}
+      ${panel(p, "l", X, Y + 22, W, H - 30)}
+      ${finder(p, 136, Y + 6, 26, 12)}
+      <pattern id="${p}hc" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#5e6a74"/><circle cx="2" cy="2" r="1.3" fill="#a9b6c2"/></pattern>
+      <circle cx="96" cy="${Y + 42}" r="31" fill="url(#${p}m)"/>
+      <circle cx="96" cy="${Y + 42}" r="28" fill="url(#${p}hc)"/>
+      <circle cx="96" cy="${Y + 42}" r="28" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+      ${lens(p, 96, Y + 42, 19)}`;
+    },
+    // ARRI ALEXA 類數位電影機：深方盒、頂部提把、遮光斗
+    alexa(p) {
+      const X = 30, Y = 80, W = 116, H = 64;
+      return `${G(p, "a", "#34363b")}${shadow(p, 100, 82)}
+      ${box(p, "a", X, Y, W, H, 18, 4)}
+      <path d="M52 ${Y - 6} V${Y - 20} H${X + W - 4} V${Y - 8}" stroke="#1d1e21" stroke-width="7" fill="none" stroke-linejoin="round"/>
+      <path d="M52 ${Y - 20} H${X + W - 4}" stroke="#55575d" stroke-width="1.4"/>
+      <rect x="${X + W + 6}" y="${Y - 2}" width="30" height="13" rx="4" fill="#1d1e21"/><rect x="${X + W + 30}" y="${Y - 5}" width="10" height="19" rx="4" fill="#0e0e10"/>
+      <path d="M36 ${Y + 4} H108 L116 ${Y - 6} H28Z" fill="#1a1b1e"/>
+      <rect x="36" y="${Y + 4}" width="72" height="58" rx="3" fill="#141518"/><rect x="36" y="${Y + 4}" width="72" height="58" rx="3" fill="none" stroke="#4a4c52" stroke-width="1"/>
+      ${lens(p, 72, Y + 33, 23)}
+      <rect x="116" y="${Y + 10}" width="22" height="9" rx="1.5" fill="#0d0d0f"/><rect x="117" y="${Y + 11}" width="20" height="7" rx="1" fill="#2a6c8f" opacity=".7"/>
+      <circle cx="${X + W - 8}" cy="${Y + 54}" r="2.5" fill="#ff3b30"/>`;
+    },
+    // Lomography Diana F+：塑膠中片幅玩具機，大鏡筒、小玻璃
+    toy(p) {
+      const X = 34, Y = 74, W = 130, H = 70;
+      return `${G(p, "b", "#4f9aa6")}${G(p, "k", "#1f1f1f")}${shadow(p, 100, 74)}
+      ${button(48, Y - 7, 14, 6)}<rect x="88" y="${Y - 7}" width="22" height="6" rx="1" fill="#2a2a2a"/>
+      ${box(p, "b", X, Y, W, H, 10, 8)}
+      ${panel(p, "k", X, Y, W, 18, 8, "x")}
+      ${finder(p, 46, Y + 3, 18, 12)}
+      <circle cx="99" cy="${Y + 42}" r="36" fill="#000" opacity=".45" filter="url(#${p}b)"/>
+      <circle cx="99" cy="${Y + 40}" r="34" fill="url(#${p}bar)"/>
+      <circle cx="99" cy="${Y + 40}" r="34" fill="none" stroke="#5a5a5a" stroke-width="3" stroke-dasharray="1.4 2.4"/>
+      <circle cx="99" cy="${Y + 40}" r="25" fill="#e9e6df"/><circle cx="99" cy="${Y + 40}" r="21" fill="url(#${p}bar)"/>
+      ${lens(p, 99, Y + 40, 13)}
+      ${txt(140, Y + 64, "120", 8, "#e8f2f3", 800, .8)}`;
+    },
+    // Olympus mju-II 類 90 年代傻瓜：圓潤鵝卵石機身，鏡頭偏右
+    mju(p) {
+      const X = 28, Y = 74, W = 144, H = 64;
+      return `${G(p, "m2", "#3a3d42")}${shadow(p, 100, 76)}
+      <rect x="${X + 6}" y="${Y - 4}" width="${W}" height="${H}" rx="30" fill="url(#${p}m2s)"/>
+      <rect x="${X}" y="${Y}" width="${W}" height="${H}" rx="30" fill="url(#${p}m2f)"/>
+      <rect x="${X}" y="${Y}" width="${W}" height="${H}" rx="30" fill="#fff" filter="url(#${p}x)"/>
+      <path d="M${X + 24} ${Y + 2} H${X + W - 24}" stroke="#fff" stroke-opacity=".4" stroke-width="1.4"/>
+      <path d="M${X + 58} ${Y + 3} C${X + 52} ${Y + 24}, ${X + 52} ${Y + 40}, ${X + 58} ${Y + H - 3}" stroke="#1c1e21" stroke-width="1.4" fill="none"/>
+      <rect x="${X + W - 30}" y="${Y - 5}" width="16" height="6" rx="3" fill="#c9c9c4"/>
+      ${flash(p, X + 14, Y + 14, 26, 13)}
+      ${finder(p, X + 70, Y + 9, 15, 11)}
+      <rect x="${X + 92}" y="${Y + 10}" width="10" height="7" rx="2" fill="#141414"/>
+      ${lens(p, X + 104, Y + 38, 17)}`;
+    },
+    // Instax mini 40：黑色皮紋、上下銀邊
+    mini40(p) {
+      return `${G(p, "s", "#d8d8d4")}${G(p, "l", "#202020")}${shadow(p, 100, 66)}
+      ${box(p, "s", 34, 46, 128, 108, 8, 12)}
+      ${panel(p, "l", 34, 70, 128, 70)}
+      <path d="M64 42 h70" stroke="#6a6a66" stroke-width="2.4" stroke-linecap="round"/>
+      ${finder(p, 44, 54, 18, 14)}${flash(p, 116, 52, 36, 16)}
+      <circle cx="148" cy="84" r="5.5" fill="#d8d8d4"/>
+      ${lens(p, 98, 108, 31, "metal")}`;
+    },
+  });
+
+  /* 濾鏡 → 機型（依 2026-10-11 查證：Fuji 四款為首次搭載機身；底片與泛稱風格為推論代表機） */
+  const MAP = {
+    none: ["cap"],
+    retro: ["trip"],                                                    // Olympus Trip 35（推論）
+    cp200: ["compact", { body: "#f6c21c", accent: "#d4142a", text: "35mm FILM", ink: "#3a2a05" }], // Kodak M35（推論）
+    eterna: ["mirrorless", { body: "#1e1e1e" }],                        // X-H1（首次搭載）
+    cneg: ["rangefinderX", { plate: "#a9a59c", leather: "#1c1c1c", lensX: 80, lensR: 24, ring: "black", wide: true }], // X-Pro3
+    chrome: ["rangefinderX", { plate: "#d6d6d2", leather: "#1c1c1c", lensX: 92, lensR: 22, ring: "metal" }],          // X100 系列
+    nneg: ["mirrorless", { body: "#1b1b1b", gfx: true }],               // GFX100S（首次搭載）
+    hass: ["medium"],                                                   // Hasselblad 500C/M
+    cs800t: ["slr", { plate: "#d6d6d2", leather: "#1a1a1a", timer: true }], // Canon AE-1（推論）
+    v50d: ["cine", { tape: "#2e7d6e", text: "50D" }],                   // 35mm 電影機
+    v250d: ["cine", { tape: "#e8b54a", text: "250D", ink: "#3a1e05" }],
+    v500t: ["cine", { tape: "#6c95c2", text: "500T" }],
+    instax: ["instax", { body: "#f2c6d2" }],                            // Instax mini 12
+    instaxbw: ["mini40"],                                               // Instax mini 40（推論）
+    polaroid: ["polaroid"],                                             // OneStep 600（推論）
+    grd: ["gr"],                                                        // Ricoh GR Digital
+    natural: ["slr", { plate: "#cdcdc8", leather: "#222222", prismPlate: "#2a2a2a" }], // Pentax K1000（推論）
+    softy: ["toy"],                                                     // Diana F+（推論）
+    cinema: ["alexa"],                                                  // ARRI ALEXA 類（推論）
+    hk: ["mju"],                                                        // Olympus mju-II 類（推論）
+  };
+  return function svgFor(id) {
+    const [kind, c] = MAP[id] || MAP.none, p = "ci" + id + "_";
+    return `<svg viewBox="0 0 200 200" aria-hidden="true" focusable="false"><defs>${common(p)}</defs>${draw[kind](p, c || {})}</svg>`;
+  };
+})();
+
+/* ---------- 介面狀態 ---------- */
+const $ = id => document.getElementById(id);
+const fmt = (id, n) => id !== "amount" && n > 0 ? "+" + n : String(n);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("filmbox:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("filmbox:" + k, JSON.stringify(v)); } catch {} },
+};
+const state = {
+  img: null, isSample: true, date: new Date(),
+  filter: store.get("filter", "cp200"),
+  frame: "none",
+  stamp: false,
+  amount: 1, exp: 0, temp: 0, grain: 0, vig: 0, glow: 0,
+};
+let previewSrc = null, previewOut = null, previewOrig = null;
+const filterById = id => FILTERS.find(f => f.id === id) || FILTERS[0];
+
+/* 顆粒、暗角、柔光是「相對濾鏡建議值」：0＝建議值，-100＝完全沒有，+100＝最強 */
+const rel = (def, o) => o < 0 ? def * (1 + o) : def + (1 - def) * o;
+function adjOf() {
+  const f = filterById(state.filter);
+  return { amount: state.amount, exp: state.exp, temp: state.temp,
+    grain: rel(f.grain || 0, state.grain), vig: rel(f.vig || 0, state.vig), glow: rel(f.glow || 0, state.glow) };
+}
+function loadFilterDefaults(f) {
+  syncSliders();
+}
+function syncSliders() {
+  const set = (id, v) => { const n = Math.round(v * 100); $("s-" + id).value = n; $("o-" + id).textContent = fmt(id, n); };
+  set("amount", state.amount); set("exp", state.exp); set("temp", state.temp);
+  set("grain", state.grain); set("vig", state.vig); set("glow", state.glow);
+}
+
+const view = $("view"), vctx = view.getContext("2d");
+function draw(canvas) {
+  view.width = canvas.width; view.height = canvas.height;
+  vctx.drawImage(canvas, 0, 0);
+}
+function previewSide() { return Math.min(1400, Math.round(Math.max(innerWidth, innerHeight) * Math.min(2, devicePixelRatio || 1))); }
+
+function rebuildSource() {
+  previewSrc = cropFor(state.img, state.frame, previewSide());
+  previewOrig = compose(previewSrc, state.frame, false, state.date);
+}
+let pending = false;
+function render() {
+  if (pending) return; pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    const f = filterById(state.filter);
+    const a = adjOf();
+    const dev = f.id === "none" && a.exp === 0 && a.temp === 0 && a.grain === 0 && a.vig === 0 && a.glow === 0
+      ? previewSrc : develop(previewSrc, f, a);
+    previewOut = compose(dev, state.frame, state.stamp, state.date);
+    draw(previewOut);
+    $("hint").innerHTML = state.isSample
+      ? "這是範例畫面，按右上角<b>選照片</b>換成你的照片。按住照片可看原圖。"
+      : `<b>${f.name}</b>　${f.desc}`;
+  });
+}
+
+function buildStrip() {
+  const strip = $("strip");
+  if (strip.children.length) return;
+  for (const f of FILTERS) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.dataset.id = f.id; b.setAttribute("aria-pressed", f.id === state.filter);
+    b.setAttribute("aria-label", f.name);
+    const box = document.createElement("div"); box.className = "box"; box.innerHTML = CAMERA_ICONS(f.id);
+    const name = document.createElement("div"); name.className = "name"; name.textContent = f.name;
+    b.append(box, name);
+    b.addEventListener("click", () => selectFilter(f.id));
+    strip.append(b);
+  }
+}
+function selectFilter(id) {
+  const prevFrame = state.frame, f = filterById(id);
+  state.filter = id; store.set("filter", id);
+  loadFilterDefaults(f);
+  for (const b of $("strip").children) b.setAttribute("aria-pressed", b.dataset.id === id);
+  if (state.frame !== prevFrame) rebuildSource();
+  render();
+}
+function buildFrames() {
+  const box = $("frames"); box.textContent = "";
+  for (const fr of FRAMES) {
+    const b = document.createElement("button"); b.className = "frame-opt"; b.type = "button";
+    b.textContent = fr.name; b.dataset.id = fr.id; b.setAttribute("aria-pressed", fr.id === state.frame);
+    b.addEventListener("click", () => setFrame(fr.id, true));
+    box.append(b);
+  }
+}
+function setFrame(id, rerender) {
+  state.frame = id;
+  for (const b of $("frames").children) b.setAttribute("aria-pressed", b.dataset.id === id);
+  if (rerender) { rebuildSource(); render(); }
+}
+
+async function setImage(img, isSample, date) {
+  state.img = img; state.isSample = isSample; state.date = date || new Date();
+  $("stamp-demo").textContent = stampText(state.date);
+  rebuildSource(); buildStrip(); render();
+}
+
+/* 選照片 */
+function decodeImage(blob) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(blob);
+    img.onload = () => resolve(img);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode")); };
+    img.src = url;
+  });
+}
+let heicLib = null;
+function loadHeicLib() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (heicLib) return heicLib;
+  heicLib = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+    s.onload = () => window.heic2any ? resolve(window.heic2any) : reject(new Error("heic"));
+    s.onerror = () => { heicLib = null; reject(new Error("heic")); };
+    document.head.append(s);
+  });
+  return heicLib;
+}
+const isHeic = f => /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name || "");
+/* 電腦上的 Chrome 和 Claude App 讀不了 iPhone 的 HEIC 照片，先轉成 JPG */
+async function openFile(file) {
+  $("busy").querySelector("p").textContent = "讀取照片中…";
+  $("busy").hidden = false;
+  try {
+    let img = null;
+    if (!isHeic(file)) img = await decodeImage(file).catch(() => null);
+    if (!img) {
+      const heic2any = await loadHeicLib();
+      let jpg = await heic2any({ blob: file, toType: "image/jpeg", quality: .95 });
+      if (Array.isArray(jpg)) jpg = jpg[0];
+      img = await decodeImage(jpg);
+    }
+    await setImage(img, false, new Date(file.lastModified || Date.now()));
+  } catch (err) {
+    $("hint").innerHTML = "<b>這張照片打不開。</b>請換一張試試，或先在照片 App 裡把它輸出成 JPG。";
+  } finally {
+    $("busy").hidden = true;
+    $("busy").querySelector("p").textContent = "沖洗中…";
+  }
+}
+$("file").addEventListener("change", e => {
+  const file = e.target.files && e.target.files[0];
+  if (file) openFile(file);
+  e.target.value = "";
+});
+
+/* 按住看原圖 */
+const stage = $("stage");
+const showOrig = on => { if (!previewOut) return; draw(on ? previewOrig : previewOut); $("badge").hidden = !on; };
+stage.addEventListener("pointerdown", () => showOrig(true));
+for (const ev of ["pointerup", "pointercancel", "pointerleave"]) stage.addEventListener(ev, () => showOrig(false));
+
+/* 分頁 */
+for (const t of document.querySelectorAll(".tab")) {
+  t.addEventListener("click", () => {
+    for (const o of document.querySelectorAll(".tab")) { o.setAttribute("aria-selected", o === t); $(o.dataset.panel).hidden = o !== t; }
+  });
+}
+
+/* 滑桿 */
+for (const id of ["amount", "exp", "temp", "grain", "vig", "glow"]) {
+  $("s-" + id).addEventListener("input", e => {
+    state[id] = e.target.value / 100; $("o-" + id).textContent = fmt(id, +e.target.value); render();
+  });
+}
+$("reset").addEventListener("click", () => { Object.assign(state, { amount: 1, exp: 0, temp: 0, grain: 0, vig: 0, glow: 0 }); syncSliders(); render(); });
+$("stamp").checked = state.stamp;
+$("stamp").addEventListener("change", e => { state.stamp = e.target.checked; render(); });
+
+/* 儲存：全尺寸重新沖洗 */
+$("save").addEventListener("click", async () => {
+  if (state.isSample) { $("hint").innerHTML = "先按<b>選照片</b>挑一張你的照片，再儲存。"; return; }
+  $("busy").hidden = false;
+  await new Promise(r => setTimeout(r, 60));
+  try {
+    const f = filterById(state.filter);
+    const full = cropFor(state.img, state.frame, 4032);
+    const dev = develop(full, f, adjOf());
+    const outC = compose(dev, state.frame, state.stamp, state.date);
+    const png = state.frame === "instax" || state.frame === "wide";  // 透明外圍要用 PNG 才保得住
+    const blob = await new Promise(r => outC.toBlob(r, png ? "image/png" : "image/jpeg", .93));
+    const d = new Date(), p = n => String(n).padStart(2, "0");
+    const filename = `底片盒_${f.name.replace(/[^\w]+/g, "")}_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.${png ? "png" : "jpg"}`;
+    $("busy").hidden = true;
+    let dl = null;
+    try { dl = window.claude ? await Promise.race([window.claude.use("downloads"), new Promise(r => setTimeout(() => r(null), 3000))]) : null; } catch { dl = null; }
+    if (dl) {
+      try { await dl.save({ filename, data: blob }); $("hint").innerHTML = "<b>已送出儲存。</b>在分享選單選「儲存影像」就會進相簿。"; return; }
+      catch (err) { if (err && err.code === "declined") return; }
+    }
+    showResult(blob, filename);
+  } catch (err) {
+    $("busy").hidden = true;
+    $("hint").textContent = "照片太大處理不了，請換一張較小的照片再試。";
+  }
+});
+/* 手機：用系統分享選單存到相簿（必須在按鈕點擊當下呼叫，所以放在完成畫面的按鈕上） */
+let resultFile = null;
+function showResult(blob, filename) {
+  const img = $("result-img");
+  if (img.src) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(blob);
+  resultFile = new File([blob], filename, { type: blob.type });
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [resultFile] }));
+  $("result-share").hidden = !canShare;
+  $("result-tip").textContent = canShare ? "按「存到相簿」，在分享選單選「儲存影像」。也可以長按照片存。" : "長按照片，選「加入照片」就能存到相簿。";
+  $("result").hidden = false;
+}
+$("result-share").addEventListener("click", async () => {
+  if (!resultFile) return;
+  try { await navigator.share({ files: [resultFile] }); }
+  catch (err) { if (err && err.name !== "AbortError") $("result-tip").textContent = "分享選單打不開，請改用長按照片存到相簿。"; }
+});
+$("result-close").addEventListener("click", () => { $("result").hidden = true; });
+
+/* 啟動 */
+buildFrames(); syncSliders();
+loadFilterDefaults(filterById(state.filter));
+(async () => {
+  try { await document.fonts.load('40px "Share Tech Mono"'); } catch {}
+  setImage(sampleImage(), true, new Date());
+})();
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (state.img) { rebuildSource(); render(); } }, 200); });
+</script>
+
+</body>
+</html>
