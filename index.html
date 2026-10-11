@@ -152,6 +152,7 @@ nav.tabs {
 }
 .overlay img { max-height: 70%; max-width: 100%; -webkit-touch-callout: default; }
 .overlay p { max-width: 32ch; line-height: 1.6; font-size: 15px; }
+.overlay .size { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 .spinner {
   width: 46px; height: 46px; border-radius: 50%;
   border: 4px solid var(--surface-2); border-top-color: var(--accent); animation: spin 1s linear infinite;
@@ -210,6 +211,7 @@ nav.tabs {
 <div class="overlay" id="busy" hidden><div class="spinner"></div><p>沖洗中…</p></div>
 <div class="overlay" id="result" hidden>
   <img id="result-img" alt="完成的照片">
+  <p id="result-size" class="size"></p>
   <p id="result-tip">長按照片，選「加入照片」就能存到相簿。</p>
   <div class="actions"><button class="btn primary" id="result-share" type="button" hidden>存到相簿</button><button class="btn" id="result-close" type="button">關閉</button></div>
 </div>
@@ -218,44 +220,34 @@ nav.tabs {
 /* ---------- 濾鏡配方 ---------- */
 const FILTERS = [
   { id:"none", name:"無", label:"ORIGINAL", c:["#3a362e","#f3eee4"], desc:"原始照片", grain:0, vig:0 },
-  { id:"retro", name:"Retro", label:"RETRO", c:["#1d4f9c","#ffffff"], desc:"乾淨暖調：黑色保持乾淨，只留一點復古溫度",
-    temp:.18, contrast:.14, fade:.02, sat:-.04, shadows:[-.01,.01,.03], highs:[.04,.02,-.03], grain:.05, vig:.1 },
-  { id:"cp200", name:"Kodak CP200", label:"COLORPLUS 200", c:["#f6c21c","#c8102e"], desc:"柯達 ColorPlus 200：暖黃、飽和，最經典的日常底片",
-    temp:.35, tint:-.04, contrast:.12, fade:.05, sat:.15, shadows:[-.01,.025,0], highs:[.05,.03,-.05], greenShift:-.4, grain:.3, vig:.2 },
   { id:"eterna", name:"Fuji E", label:"FUJI ETERNA", c:["#1f2e5c","#e8ecf6"], desc:"富士電影底片 Eterna：低對比、低飽和，偏青的電影感",
     temp:-.1, contrast:-.22, fade:.06, sat:-.3, shadows:[-.02,.02,.045], highs:[.02,.01,-.01], grain:.15, vig:.15 },
   { id:"cneg", name:"Classic Neg.", label:"CLASSIC NEG", c:["#1f8a3a","#f3e94a"], desc:"富士 Classic Neg：硬對比、暗部偏青，像 90 年代沖印店",
     contrast:.25, fade:.03, sat:-.05, shadows:[-.03,.012,.045], highs:[.045,.02,-.02], greenShift:.5, grain:.2, vig:.15 },
   { id:"chrome", name:"Classic Chrome", label:"CLASSIC CHROME", c:["#c99a2e","#3b2a14"], desc:"富士 Classic Chrome：沉穩低彩，紀實攝影的味道",
     temp:.05, contrast:.2, sat:-.32, blueSat:-.35, shadows:[0,.006,.022], highs:[.02,.015,0], grain:.1, vig:.15 },
-  { id:"nneg", name:"Nostalgic Neg.", label:"NOSTALGIC", c:["#4057b8","#f2d27a"], desc:"富士 Nostalgic Neg：琥珀色亮部，柔和的懷舊午後",
-    temp:.3, contrast:-.05, fade:.05, sat:.05, shadows:[.01,0,.02], highs:[.065,.03,-.035], grain:.15, vig:.2, glow:.1 },
   { id:"hass", name:"Hass", label:"HASS BLUE", c:["#2b2b2b","#9fc3e6"], desc:"哈蘇冷調：乾淨、偏冷、細節清楚",
     temp:-.25, contrast:.06, sat:-.05, highs:[0,.01,.03], grain:0, vig:.1 },
   { id:"cs800t", name:"CineStill 800T", label:"CINESTILL 800T", c:["#c8102e","#ffffff"], desc:"CineStill 800T：夜晚燈光周圍會泛出紅暈，偏藍的電影夜景",
     temp:-.35, tint:-.04, contrast:.1, sat:.05, shadows:[-.02,.01,.05], halation:.75, grain:.35, vig:.2 },
   { id:"v50d", name:"50D", label:"VISION 50D", c:["#2e7d6e","#ffffff"], desc:"柯達電影底片 50D：細緻、自然，日光下最乾淨",
     contrast:.05, fade:.02, highs:[.02,.01,0], roll:.25, grain:.08, vig:.1 },
-  { id:"v250d", name:"250D", label:"VISION 250D", c:["#e8b54a","#5a2d0c"], desc:"柯達電影底片 250D：微暖、有一點顆粒的電影日景",
-    temp:.15, fade:.04, sat:.05, highs:[.03,.015,-.01], roll:.25, grain:.18, vig:.15 },
   { id:"v500t", name:"500T", label:"VISION 500T", c:["#6c95c2","#ffffff"], desc:"柯達電影底片 500T：室內鎢絲燈片，冷暗部、暖亮部",
     temp:-.2, contrast:.05, shadows:[-.02,.01,.04], highs:[.03,.01,-.02], halation:.3, grain:.3, vig:.2 },
   { id:"instax", name:"Insta Color", label:"INSTAX", c:["#ffffff","#e4002b"], desc:"拍立得 Instax：明亮、色彩鮮，像現場吐出來的小相紙",
     exp:.15, contrast:.15, fade:.03, sat:.2, temp:-.05, shadows:[0,.01,.03], roll:.3, grain:.05, vig:.1 },
   { id:"instaxbw", name:"Insta STD", label:"INSTAX B&W", c:["#e9e6df","#222222"], desc:"Instax 黑白：柔和灰階，安靜的黑白小相紙",
     mono:true, contrast:.2, fade:.05, grain:.15, vig:.15 },
-  { id:"polaroid", name:"Polaroid", label:"POLAROID", c:["#f4f1ea","#2a6fdb"], desc:"寶麗來：褪色、暗部偏綠，老家相簿的顏色",
-    temp:.1, contrast:-.1, fade:.15, sat:-.15, shadows:[0,.03,.02], highs:[.04,.03,-.03], glow:.2, grain:.2, vig:.35 },
-  { id:"grd", name:"GRd", label:"RICOH GR", c:["#1c1c1c","#7bd88f"], desc:"理光 GR 正片風：高對比、濃郁，街拍感重",
-    temp:.1, contrast:.3, sat:.15, shadows:[0,0,.02], highs:[.03,.01,-.03], grain:.12, vig:.25 },
+  { id:"polaroid", name:"Polaroid", label:"POLAROID", c:["#f4f1ea","#2a6fdb"], desc:"寶麗來：褪色、整體偏綠，老相簿的顏色",
+    temp:0, contrast:-.1, fade:.15, sat:-.15, shadows:[-.01,.035,.025], highs:[0,.03,.01], glow:.2, grain:.2, vig:.35 },
   { id:"natural", name:"Natural", label:"NATURAL", c:["#6cc3f0","#ffffff"], desc:"自然：只加一點底片質感，顏色幾乎不動",
     contrast:.05, sat:.05, fade:.01, roll:.2, grain:.06, vig:.05 },
   { id:"softy", name:"Softy", label:"SOFTY", c:["#e5c21f","#556b1e"], desc:"柔焦：低對比、亮部發光，粉嫩空氣感",
     exp:.1, temp:.05, contrast:-.25, fade:.1, sat:-.1, highs:[.02,.008,.012], glow:.4, grain:.08, vig:.05 },
   { id:"cinema", name:"Cinema", label:"CINEMA", c:["#e0602a","#13465a"], desc:"電影青橙調：暗部青、膚色暖，好萊塢大片感",
     contrast:.15, sat:-.05, shadows:[-.035,.02,.065], highs:[.06,.02,-.04], grain:.15, vig:.25 },
-  { id:"hk", name:"HongKong", label:"HONG KONG", c:["#4a4130","#ffffff"], desc:"港風：綠調暗部、霓虹暖光，王家衛式的夜",
-    temp:.1, contrast:.2, sat:.15, shadows:[-.02,.045,0], highs:[.05,.03,-.04], greenShift:.3, halation:.25, grain:.3, vig:.3 },
+  { id:"hk", name:"HongKong", label:"HONG KONG", c:["#4a4130","#ffffff"], desc:"港風：整體綠調、霓虹微光，王家衛式的夜",
+    temp:-.05, contrast:.2, sat:.1, shadows:[-.025,.05,.01], highs:[0,.03,.005], greenShift:.3, halation:.2, grain:.3, vig:.3 },
 ];
 const FRAMES = [
   { id:"none", name:"無" }, { id:"black", name:"黑邊" }, { id:"white", name:"白邊" },
@@ -871,7 +863,7 @@ const GPU = (() => {
       if(halo>0.){float h=b.r*halo;c+=(1.-c)*h*vec3(1.,.28,.12);}
       if(glow>0.){float g=b.g*glow*.8;c+=(1.-c)*g*vec3(1.,.96,.9);}
       if(vig>0.){float dd=length((uv-.5)*res)/length(res*.5);float t=clamp((dd-.45)/.6,0.,1.);c*=1.-vig*.75*t*t*(3.-2.*t);}
-      if(grain>0.){float l=dot(c,vec3(.3,.59,.11));float n=(texture2D(noise,floor(uv*res/gsz)/256.+seed).r-.5)*3.4;c+=n*grain*(30./255.)*(.35+2.6*l*(1.-l));}
+      if(grain>0.){float l=dot(c,vec3(.3,.59,.11));vec2 gp=uv*res/gsz;float n=((texture2D(noise,gp/256.+seed).r-.5)*.7+(texture2D(noise,gp/97.3+seed.yx).r-.5)*.3)*3.4*1.6;c+=n*grain*(30./255.)*(.35+2.6*l*(1.-l));}
       c=o+(c-o)*amount;gl_FragColor=vec4(clamp(c,0.,1.),1.);}`;
 
   function prog(fs) {
@@ -896,7 +888,7 @@ const GPU = (() => {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
     return t;
   }
-  const imgTex = tex(), lutTex = tex(), noiseTex = tex(gl.NEAREST, gl.REPEAT);
+  const imgTex = tex(), lutTex = tex(), noiseTex = tex(gl.LINEAR, gl.REPEAT);
   { // 顆粒雜訊（固定種子）
     const rnd = mulberry32(7), d = new Uint8Array(256 * 256 * 4);
     for (let i = 0; i < d.length; i += 4) { const n = (rnd() + rnd() + rnd() - 1.5) * 1.15; const v = Math.max(0, Math.min(255, Math.round((n / 3.4 + .5) * 255))); d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255; }
@@ -958,7 +950,7 @@ const GPU = (() => {
     gl.uniform1f(U.halo, fbos.length ? halo : 0); gl.uniform1f(U.glow, fbos.length ? glow : 0);
     gl.uniform1f(U.vig, f.vig || 0); gl.uniform1f(U.grain, f.grain || 0);
     gl.uniform1f(U.amount, f.id === "none" ? 0 : 1);
-    gl.uniform1f(U.gsz, Math.max(1, Math.round(Math.max(w, h) / 1300)));
+    gl.uniform1f(U.gsz, Math.max(1, Math.max(w, h) / 1600));
     gl.uniform2f(U.seed, opt.seed || 0, (opt.seed || 0) * .61);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return canvas;
@@ -980,9 +972,10 @@ const store = {
 };
 const state = {
   mode: "camera", img: null, date: new Date(),
-  filter: store.get("filter", "cp200"), frame: "none", stamp: false,
+  filter: store.get("filter", "eterna"), frame: "none", stamp: false,
 };
 const filterById = id => FILTERS.find(f => f.id === id) || FILTERS[0];
+if (!FILTERS.some(f => f.id === state.filter)) state.filter = "eterna";
 let previewSrc = null, previewOut = null, previewOrig = null;
 
 const view = $("view"), vctx = view.getContext("2d"), live = $("live"), video = $("video");
@@ -1014,6 +1007,12 @@ async function startCamera() {
   camMessage("正在開啟相機…");
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: facing, width: { ideal: 4032 }, height: { ideal: 3024 } } });
+    const track = stream.getVideoTracks()[0];
+    try { // 向鏡頭要它能給的最高解析度
+      const caps = track.getCapabilities ? track.getCapabilities() : null;
+      if (caps && caps.width && caps.height && caps.width.max && caps.height.max)
+        await track.applyConstraints({ width: { ideal: caps.width.max }, height: { ideal: caps.height.max } });
+    } catch {}
     video.srcObject = stream; await video.play();
     camMessage(""); $("shutter").disabled = false; live.hidden = false;
     loop();
@@ -1205,7 +1204,7 @@ $("save").addEventListener("click", async () => {
       try { await dl.save({ filename, data: blob }); $("hint").innerHTML = "<b>已送出儲存。</b>在分享選單選「儲存影像」就會進相簿。"; return; }
       catch (err) { if (err && err.code === "declined") return; }
     }
-    showResult(blob, filename);
+    showResult(blob, filename, outC.width, outC.height);
   } catch (err) {
     $("busy").hidden = true;
     $("hint").textContent = "照片太大處理不了，請換一張較小的照片再試。";
@@ -1213,7 +1212,7 @@ $("save").addEventListener("click", async () => {
 });
 /* 手機：用系統分享選單存到相簿（必須在按鈕點擊當下呼叫，所以放在完成畫面的按鈕上） */
 let resultFile = null;
-function showResult(blob, filename) {
+function showResult(blob, filename, w, h) {
   const img = $("result-img");
   if (img.src) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(blob);
@@ -1221,6 +1220,7 @@ function showResult(blob, filename) {
   const canShare = !!(navigator.canShare && navigator.canShare({ files: [resultFile] }));
   $("result-share").hidden = !canShare;
   $("result-tip").textContent = canShare ? "按「存到相簿」，在分享選單選「儲存影像」。也可以長按照片存。" : "長按照片，選「加入照片」就能存到相簿。";
+  $("result-size").textContent = w ? `${w} × ${h} 像素（約 ${(w * h / 1e6).toFixed(1)} 百萬畫素）` : "";
   $("result").hidden = false;
 }
 $("result-share").addEventListener("click", async () => {
